@@ -6,11 +6,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
+import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Address;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Customer;
+import wellsfargo.cto.eai.starter.greenfieldappreactive.model.CustomerWithZipCode;
 
 import java.time.Duration;
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -75,5 +80,27 @@ public class CustomerService {
                         error -> Mono.error(new RuntimeException("Server is not responding")))
                 .bodyToMono(Customer.class)
                 .block();
+    }
+
+    public Mono<Address> getAddress(String zipCode) {
+        return webClient.get()
+                .uri("/address/{zipCode}", zipCode)
+                .retrieve()
+                .bodyToMono(Address.class);
+    }
+
+    public Flux<Customer> getCustomers(List<String> customerIds) {
+        return Flux.fromIterable(customerIds)
+                .parallel()
+                .runOn(Schedulers.boundedElastic())
+                .flatMap(this::getCustomerById)
+                .ordered((u1, u2) -> Integer.parseInt(u2.getCustomerId()) - Integer.parseInt(u1.getCustomerId()));
+    }
+
+    public Mono<CustomerWithZipCode> getCustomerWithAddress(String customerId, String zipCode) {
+        Mono<Customer> customer = getCustomerById(customerId).subscribeOn(Schedulers.boundedElastic());
+        Mono<Address> address = getAddress(zipCode).subscribeOn(Schedulers.boundedElastic());
+
+        return Mono.zip(customer, address, CustomerWithZipCode::new);
     }
 }

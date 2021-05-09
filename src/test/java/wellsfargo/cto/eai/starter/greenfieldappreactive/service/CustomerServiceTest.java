@@ -7,10 +7,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.GreenfieldAppReactiveWebclientApplication;
+import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Address;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Customer;
+import wellsfargo.cto.eai.starter.greenfieldappreactive.model.CustomerWithZipCode;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.springframework.test.util.AssertionErrors.assertEquals;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT, classes = GreenfieldAppReactiveWebclientApplication.class)
 public class CustomerServiceTest {
@@ -84,5 +91,52 @@ public class CustomerServiceTest {
         assertThrows(RuntimeException.class, () -> {
             customerService.getCustomerWithRetry("123");
         });
+    }
+
+    @Test
+    public void whenFetchingCustomers_thenExecutionTimeIsLessThanDouble() {
+        //given
+        int requestsNumber = 5;
+
+        List<String> customerIds = IntStream.rangeClosed(1, requestsNumber)
+                .boxed()
+                .map(Object::toString)
+                .collect(Collectors.toList());
+
+        //when
+        List<Customer> customers = customerService.getCustomers(customerIds)
+                .collectList()
+                .block();
+
+        //then
+        assertEquals("Unexpected number of customers", requestsNumber, customers.size());
+    }
+
+    @Test
+    public void getCustomersWithAddress() {
+        //given
+        CustomerWithZipCode expectedCustomerWithZipCode = CustomerWithZipCode.builder()
+                              .customer(Customer.builder()
+                                              .customerId("1")
+                                              .firstName("alex")
+                                              .lastName("smith")
+                                              .build())
+                              .address(Address.builder()
+                                      .zipCode("75034")
+                                      .street("7856 MontFort Drive")
+                                      .aptNumber("1080")
+                                      .city("Colarado Springs")
+                                      .country("USA")
+                                      .build())
+                               .build();
+
+        //when
+        Mono<CustomerWithZipCode> customerWithZipCode = customerService.getCustomerWithAddress("1", "75034");
+
+        //then
+        StepVerifier.create(customerWithZipCode)
+                    .expectSubscription()
+                    .assertNext(customerWithZipCode1 -> Assertions.assertThat(customerWithZipCode1).usingRecursiveComparison().isEqualTo(expectedCustomerWithZipCode))
+                    .verifyComplete();
     }
 }
