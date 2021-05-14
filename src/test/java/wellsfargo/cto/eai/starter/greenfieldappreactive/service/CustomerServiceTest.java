@@ -4,6 +4,8 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.codec.ServerSentEvent;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.GreenfieldAppReactiveWebclientApplication;
@@ -11,6 +13,7 @@ import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Address;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Customer;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.CustomerWithZipCode;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -139,4 +142,17 @@ public class CustomerServiceTest {
                     .assertNext(customerWithZipCode1 -> Assertions.assertThat(customerWithZipCode1).usingRecursiveComparison().isEqualTo(expectedCustomerWithZipCode))
                     .verifyComplete();
     }
+
+    @Test
+    public void getServerSentEvent() {
+
+        Flux<ServerSentEvent<String>> serverSentEventFlux = customerService.consumeServerSentEvent();
+        StepVerifier.create(serverSentEventFlux)
+                .expectSubscription()
+                .assertNext(content -> Assertions.assertThat(content.event()).isEqualTo("periodic-event"))
+                .verifyComplete();
+    }
+
+
+
 }

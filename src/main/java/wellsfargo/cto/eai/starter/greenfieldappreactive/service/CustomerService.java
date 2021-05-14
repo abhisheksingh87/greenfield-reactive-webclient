@@ -2,8 +2,10 @@ package wellsfargo.cto.eai.starter.greenfieldappreactive.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -17,6 +19,7 @@ import wellsfargo.cto.eai.starter.greenfieldappreactive.model.CustomerWithZipCod
 import java.time.Duration;
 import java.util.List;
 
+
 @Service
 @AllArgsConstructor
 @Slf4j
@@ -27,10 +30,23 @@ public class CustomerService {
     public static final int DELAY_MILLIS = 100;
     public static final int MAX_RETRY_ATTEMPTS = 3;
 
-    private final WebClient webClient;
+    private final WebClient webClientWithTimeout;
+
+    private final WebClient webClientSleuth;
+
+    public Flux<ServerSentEvent<String>> consumeServerSentEvent() {
+         ParameterizedTypeReference<ServerSentEvent<String>> type
+                = new ParameterizedTypeReference<ServerSentEvent<String>>() {};
+
+        return webClientWithTimeout.get()
+                .uri("/stream-sse")
+                .retrieve()
+                .bodyToFlux(type);
+
+    }
 
     public Mono<Customer> getCustomerById(final String id) {
-        return webClient
+        return webClientWithTimeout
                 .get()
                 .uri(CUSTOMER_URL_TEMPLATE, id)
                 .accept(MediaType.APPLICATION_JSON)
@@ -39,7 +55,7 @@ public class CustomerService {
     }
 
     public Customer getCustomerByIdSync(final String id) {
-        return webClient
+        return webClientWithTimeout
                 .get()
                 .uri(CUSTOMER_URL_TEMPLATE, id)
                 .accept(MediaType.APPLICATION_JSON)
@@ -49,7 +65,7 @@ public class CustomerService {
     }
 
     public Customer getCustomerWithRetry(final String id) {
-        return webClient
+        return webClientWithTimeout
                 .get()
                 .uri(BROKEN_URL_TEMPLATE, id)
                 .retrieve()
@@ -59,7 +75,7 @@ public class CustomerService {
     }
 
     public Customer getCustomerWithFallBack(final String id) {
-        return webClient
+        return webClientWithTimeout
                 .get()
                 .uri(BROKEN_URL_TEMPLATE, id)
                 .retrieve()
@@ -70,7 +86,7 @@ public class CustomerService {
     }
 
     public Customer getCustomerWithErrorHandling(final String id) {
-        return webClient
+        return webClientWithTimeout
                 .get()
                 .uri(BROKEN_URL_TEMPLATE, id)
                 .retrieve()
@@ -83,11 +99,12 @@ public class CustomerService {
     }
 
     public Mono<Address> getAddress(String zipCode) {
-        return webClient.get()
+        return webClientWithTimeout.get()
                 .uri("/address/{zipCode}", zipCode)
                 .retrieve()
                 .bodyToMono(Address.class);
     }
+
 
     public Flux<Customer> getCustomers(List<String> customerIds) {
         return Flux.fromIterable(customerIds)
@@ -98,9 +115,18 @@ public class CustomerService {
     }
 
     public Mono<CustomerWithZipCode> getCustomerWithAddress(String customerId, String zipCode) {
-        Mono<Customer> customer = getCustomerById(customerId).subscribeOn(Schedulers.boundedElastic());
-        Mono<Address> address = getAddress(zipCode).subscribeOn(Schedulers.boundedElastic());
+        Mono<Customer> customer = getCustomerById(customerId);
+        Mono<Address> address = getAddress(zipCode);
 
-        return Mono.zip(customer, address, CustomerWithZipCode::new);
+        return Mono.zip(customer, address, (customer1, address1) -> new CustomerWithZipCode(customer1, address1));
+    }
+
+    public Mono<String> sleuthCustomerService() {
+        return webClientSleuth
+                .get()
+                .uri("/customer")
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(String.class);
     }
 }
