@@ -45,6 +45,12 @@ public class CustomerService {
 
     }
 
+    /**
+     * The below method uses {@link WebClient} to retrieve
+     * Customer object Asynchronously using {@link Mono}
+     * @param id
+     * @return Mono<Customer>
+     */
     public Mono<Customer> getCustomerById(final String id) {
         return webClientWithTimeout
                 .get()
@@ -54,6 +60,12 @@ public class CustomerService {
                 .bodyToMono(Customer.class);
     }
 
+    /**
+     * The below method uses {@link WebClient} to retrieve
+     * Customer object Synchronously using {@link Mono#block()}
+     * @param id
+     * @return Mono<Customer>
+     */
     public Customer getCustomerByIdSync(final String id) {
         return webClientWithTimeout
                 .get()
@@ -64,6 +76,14 @@ public class CustomerService {
                 .block();
     }
 
+    /**
+     * Retrieves Customer object with {@link WebClient}
+     * Synchronously using {@link Mono#block()}
+     * and It also configures {@link Retry} If there is issue
+     * while calling services
+     * @param id
+     * @return Mono<Customer>
+     */
     public Customer getCustomerWithRetry(final String id) {
         return webClientWithTimeout
                 .get()
@@ -74,6 +94,14 @@ public class CustomerService {
                 .block();
     }
 
+    /**
+     * Retrieves Customer object using {@link WebClient}
+     * Synchronously using {@link Mono#block()}
+     * and It also configures fallback method if service returns
+     * an error.
+     * @param id
+     * @return Mono<Customer>
+     */
     public Customer getCustomerWithFallBack(final String id) {
         return webClientWithTimeout
                 .get()
@@ -85,19 +113,6 @@ public class CustomerService {
                 .block();
     }
 
-    public Customer getCustomerWithErrorHandling(final String id) {
-        return webClientWithTimeout
-                .get()
-                .uri(BROKEN_URL_TEMPLATE, id)
-                .retrieve()
-                .onStatus(HttpStatus::is4xxClientError,
-                        error -> Mono.error(new RuntimeException("API not found")))
-                .onStatus(HttpStatus::is5xxServerError,
-                        error -> Mono.error(new RuntimeException("Server is not responding")))
-                .bodyToMono(Customer.class)
-                .block();
-    }
-
     public Mono<Address> getAddress(String zipCode) {
         return webClientWithTimeout.get()
                 .uri("/address/{zipCode}", zipCode)
@@ -106,6 +121,12 @@ public class CustomerService {
     }
 
 
+    /**
+     * Retrieves Flux of Customers using ParallelFlux.
+     * Parallel() should be used together with runOn method.
+     * @param customerIds
+     * @return Flux<Customer>
+     */
     public Flux<Customer> getCustomers(List<String> customerIds) {
         return Flux.fromIterable(customerIds)
                 .parallel()
@@ -114,6 +135,13 @@ public class CustomerService {
                 .ordered((u1, u2) -> Integer.parseInt(u2.getCustomerId()) - Integer.parseInt(u1.getCustomerId()));
     }
 
+    /**
+     * Retrieves Mono of CustomerWithZipCode By combining.
+     * Mono of Customer and Monog of Address
+     * @param customerId
+     * @param zipCode
+     * @return Mono<CustomerWithZipCode>
+     */
     public Mono<CustomerWithZipCode> getCustomerWithAddress(String customerId, String zipCode) {
         Mono<Customer> customer = getCustomerById(customerId);
         Mono<Address> address = getAddress(zipCode);

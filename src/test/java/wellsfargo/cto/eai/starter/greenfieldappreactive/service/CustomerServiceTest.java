@@ -13,6 +13,7 @@ import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Address;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.Customer;
 import wellsfargo.cto.eai.starter.greenfieldappreactive.model.CustomerWithZipCode;
 
+import java.time.Duration;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -150,7 +151,8 @@ public class CustomerServiceTest {
         StepVerifier.create(serverSentEventFlux)
                 .expectSubscription()
                 .assertNext(content -> Assertions.assertThat(content.event()).isEqualTo("periodic-event"))
-                .verifyComplete();
+                .thenCancel()
+                .verify(Duration.ofSeconds(5L));
     }
 
 

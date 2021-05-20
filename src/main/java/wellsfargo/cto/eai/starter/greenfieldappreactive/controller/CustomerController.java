@@ -43,12 +43,22 @@ public class CustomerController {
                 .build());
     }
 
+    /**
+     * Create SSE streaming endpoint and designate its MIME type as text/event-stream:
+     * @return Flux<String>
+     */
     @GetMapping(path = "/stream-flux", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamFlux() {
         return Flux.interval(Duration.ofSeconds(1))
                 .map(sequence -> "Flux - " + LocalTime.now().toString());
     }
 
+    /**
+     * Create SSE streaming endpoint and use {@link ServerSentEvent}. Using
+     * ServerSentEvent you can ignore "text/event-stream" MIME type and also
+     * handle events metadata.
+     * @return Flux<ServerSentEvent<String>>
+     */
     @GetMapping("/stream-sse")
     public Flux<ServerSentEvent<String>> streamEvents() {
         return Flux.interval(Duration.ofSeconds(1))
@@ -60,6 +70,10 @@ public class CustomerController {
                         .build());
     }
 
+    /**
+     * The below endpoint is created to test tracing using Spring-Cloud-Sleuth-Otel
+     * @return Flux<ServerSentEvent<String>>
+     */
     @GetMapping("/sleuth-customer-service")
     public Mono<String> sleuthCustomer() {
         log.info("inside sleuth-customer-service");
