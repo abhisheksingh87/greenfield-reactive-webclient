@@ -1,4 +1,4 @@
-# reactive-webclient-starter
+# webclient-starter
 
 This starter provides simple app to configure `WebClient` and provides different methods
 to call services synchronously and asynchronously.
